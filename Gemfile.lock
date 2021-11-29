@@ -15,6 +15,7 @@ GEM
     rack-test (1.1.0)
       rack (>= 1.0, < 3)
     rainbow (3.0.0)
+    redcarpet (3.5.1)
     regexp_parser (2.1.1)
     rexml (3.2.5)
     rubocop (1.23.0)
@@ -50,6 +51,7 @@ DEPENDENCIES
   erubis
   minitest
   rack-test
+  redcarpet
   rubocop
   sinatra (~> 1.4.7)
   sinatra-contrib

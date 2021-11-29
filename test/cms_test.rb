@@ -100,7 +100,6 @@ MY ORIGINAL TESTS
   def test_viewing_nonexistent_document
     get "/madeupfile.ext"
     assert_equal 302, last_response.status
-    assert_empty last_response.body
 
     get last_response["Location"]
     assert_equal 200, last_response.status
@@ -108,5 +107,12 @@ MY ORIGINAL TESTS
 
     get "/"
     refute_includes last_response.body, "madeupfile.ext does not exist."    
+  end
+
+  def test_viewing_markdown_document
+    get "/about.md"
+
+    assert_equal 200, last_response.status
+    assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
   end
 end
