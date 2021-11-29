@@ -96,4 +96,17 @@ MY ORIGINAL TESTS
     assert_equal "text/plain", last_response["Content-Type"]
     assert_includes last_response.body, "This has all happened before..."
   end
+
+  def test_viewing_nonexistent_document
+    get "/madeupfile.ext"
+
+    assert_equal 302, last_response.status
+    assert_empty last_response.body
+
+    get "/"
+    assert_includes last_response.body, "madeupfile.ext does not exist."
+
+    get "/"
+    assert_includes last_response.body, "madeupfile.ext does not exist."    
+  end
 end
