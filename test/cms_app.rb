@@ -99,14 +99,14 @@ MY ORIGINAL TESTS
 
   def test_viewing_nonexistent_document
     get "/madeupfile.ext"
-
     assert_equal 302, last_response.status
     assert_empty last_response.body
 
-    get "/"
+    get last_response["Location"]
+    assert_equal 200, last_response.status
     assert_includes last_response.body, "madeupfile.ext does not exist."
 
     get "/"
-    assert_includes last_response.body, "madeupfile.ext does not exist."    
+    refute_includes last_response.body, "madeupfile.ext does not exist."    
   end
 end
