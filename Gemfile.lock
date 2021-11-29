@@ -4,6 +4,7 @@ GEM
     ast (2.4.2)
     backports (3.21.0)
     erubis (2.7.0)
+    minitest (5.14.4)
     multi_json (1.15.0)
     parallel (1.21.0)
     parser (3.0.3.0)
@@ -47,6 +48,8 @@ PLATFORMS
 
 DEPENDENCIES
   erubis
+  minitest
+  rack-test
   rubocop
   sinatra (~> 1.4.7)
   sinatra-contrib
