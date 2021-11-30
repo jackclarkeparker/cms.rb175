@@ -18,17 +18,29 @@ get "/" do
   erb :index
 end
 
+def markdown_to_html(text)
+  markdown = Redcarpet::Markdown.new(Redcarpet::Render::HTML)
+  markdown.render(text)
+end
+
+def build_response(path)
+  content = File.read(path)
+  case File.extname(path)
+  when ".txt"
+    headers["Content-Type"] = "text/plain"
+    content
+  when ".md"
+    markdown_to_html(content)
+  end
+end
+
 get "/:filename" do
   file_path = root + "/data/" + params[:filename]
 
-  if !File.file?(file_path)
+  if File.file?(file_path)
+    build_response(file_path)
+  else
     session[:error] = "#{params[:filename]} does not exist."
     redirect "/"
-  elsif File.extname(file_path) == ".md"
-    markdown_to_html = Redcarpet::Markdown.new(Redcarpet::Render::HTML)
-    markdown_to_html.render(File.read(file_path))
-  else
-    headers["Content-Type"] = "text/plain"
-    File.read(file_path)
   end  
 end
