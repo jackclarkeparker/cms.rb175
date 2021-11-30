@@ -3,21 +3,15 @@
 <head></head>
 <body>
 
-  <% if session[:error] %>
+  <% if session[:message] %>
     <div>
-      <p><%= session.delete(:error) %></p>
-    </div>
-  <% end %>
-
-  <% if session[:success] %>
-    <div>
-      <p><%= session.delete(:success) %></p>
+      <p><%= session.delete(:message) %></p>
     </div>
   <% end %>
 
   <ul>
     <% @files.each do |file| %>
-      <li><a href="/<%= file %>"><%= file %></a></li>
+      <li><a href="/<%= file %>"><%= file %></a> | <a href="/<%= file %>/edit">edit</a></li>
     <% end %>
   </ul>
 </body>

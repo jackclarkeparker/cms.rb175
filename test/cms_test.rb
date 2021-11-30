@@ -86,6 +86,7 @@ MY ORIGINAL TESTS
     assert_includes last_response.body, "about.md"
     assert_includes last_response.body, "changes.txt"
     assert_includes last_response.body, "history.txt"
+    assert_includes last_response.body, "edit"
   end
 
   def test_viewing_text_document
@@ -115,4 +116,43 @@ MY ORIGINAL TESTS
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
     assert_includes last_response.body, "<h1>Ruby is...</h1>"
   end
+
+  def test_editing_document
+    root = File.expand_path("../..", __FILE__)
+    file_path = root + "/data/changes.txt"
+    original_content = File.read(file_path)
+
+    get "/changes.txt/edit"
+    assert_equal 200, last_response.status
+    
+    post "/changes.txt", { new_content: "testing" }
+    assert_equal 302, last_response.status
+
+    get last_response["Location"]
+    assert_equal 200, last_response.status
+    assert_equal "testing", File.read(file_path)
+
+    assert_includes last_response.body, "changes.txt has been updated!"
+
+    get "/"
+    refute_includes last_response.body, "changes.txt has been updated!"
+
+    File.write(file_path, original_content)
+  end
+
+  # def test_edit_flash_message
+    # original_content = File.read('../data/changes.txt')
+
+
+  # end
+
+  # GET  /changes.txt/edit
+    # Status 200
+                        # <----------------\
+  # POST /changes.txt         MAKE CHANGES HERE OR HERE
+                        # <------------------------/
+    # Status 302
+  # GET  /
+    # Status 200
+    # Check changes persist
 end

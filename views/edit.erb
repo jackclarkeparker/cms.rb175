@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+  <p>Edit content of <%= @filename %>:</p>
+  <form action="/<%= @filename %>" method="post">
+    <textarea name="new_content" rows="20" cols="80"><%= File.read(@file_path) %></textarea>
+    <br>
+    <button type="submit">Save Changes</button>
+  </form>
+</body>
