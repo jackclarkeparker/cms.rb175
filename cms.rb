@@ -52,6 +52,7 @@ end
 get "/:filename/edit" do
   @filename = params[:filename]
   @file_path = root + "/data/" + @filename
+  @content = File.read(@file_path)
 
   erb :edit
 end
