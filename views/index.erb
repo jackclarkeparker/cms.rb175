@@ -1,9 +1,3 @@
-<% if session[:message] %>
-  <div class="message">
-    <p><%= session.delete(:message) %></p>
-  </div>
-<% end %>
-
 <ul>
   <% @files.each do |file| %>
     <li>
