@@ -3,7 +3,15 @@ ENV["RACK_ENV"] = 'test'
 require 'minitest/autorun'
 require 'rack/test'
 
+require 'fileutils'
+
 require_relative '../cms'
+
+def create_document(name, content = "")
+  File.open(File.join(data_path, name), "w") do |file|
+    file.write(content)
+  end
+end
 
 class CMSTest < Minitest::Test
   include Rack::Test::Methods
@@ -77,19 +85,30 @@ MY ORIGINAL TESTS
 
 =end
 
+  def setup
+    FileUtils.mkdir_p(data_path)
+  end
+
+  def teardown
+    FileUtils.rm_rf(data_path)
+  end
+
   def test_index
+    create_document "about.md"
+    create_document "changes.txt"
+
     get "/"
     
     assert_equal 200, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
-    
     assert_includes last_response.body, "about.md"
     assert_includes last_response.body, "changes.txt"
-    assert_includes last_response.body, "history.txt"
     assert_includes last_response.body, "edit"
   end
 
   def test_viewing_text_document
+    create_document "history.txt", "This has all happened before..."
+
     get "/history.txt"
 
     assert_equal 200, last_response.status
@@ -110,6 +129,8 @@ MY ORIGINAL TESTS
   end
 
   def test_viewing_markdown_document
+    create_document "about.md", "# Ruby is..."
+
     get "/about.md"
 
     assert_equal 200, last_response.status
@@ -118,9 +139,14 @@ MY ORIGINAL TESTS
   end
 
   def test_editing_document
-    root = File.expand_path("../..", __FILE__)
-    file_path = root + "/data/changes.txt"
-    original_content = File.read(file_path)
+    # root = File.expand_path("../..", __FILE__)
+    # file_path = root + "/data/changes.txt"
+    # original_content = File.read(file_path)
+
+    # THIS ^^^ was to collect the original content of the file so that we could
+    # later restore it.
+
+    create_document "changes.txt"
 
     get "/changes.txt/edit"
     assert_equal 200, last_response.status
@@ -130,29 +156,9 @@ MY ORIGINAL TESTS
 
     get last_response["Location"]
     assert_equal 200, last_response.status
-    assert_equal "testing", File.read(file_path)
-
     assert_includes last_response.body, "changes.txt has been updated!"
 
-    get "/"
-    refute_includes last_response.body, "changes.txt has been updated!"
-
-    File.write(file_path, original_content)
+    get "/changes.txt"
+    assert_includes last_response.body, "testing"
   end
-
-  # def test_edit_flash_message
-    # original_content = File.read('../data/changes.txt')
-
-
-  # end
-
-  # GET  /changes.txt/edit
-    # Status 200
-                        # <----------------\
-  # POST /changes.txt         MAKE CHANGES HERE OR HERE
-                        # <------------------------/
-    # Status 302
-  # GET  /
-    # Status 200
-    # Check changes persist
 end
