@@ -28,11 +28,6 @@ get "/" do
   erb :index
 end
 
-def markdown_to_html(text)
-  markdown = Redcarpet::Markdown.new(Redcarpet::Render::HTML)
-  markdown.render(text)
-end
-
 def build_response(path)
   content = File.read(path)
 
@@ -41,8 +36,13 @@ def build_response(path)
     headers["Content-Type"] = "text/plain"
     content
   when ".md"
-    markdown_to_html(content)
+    erb markdown_to_html(content)
   end
+end
+
+def markdown_to_html(text)
+  markdown = Redcarpet::Markdown.new(Redcarpet::Render::HTML)
+  markdown.render(text)
 end
 
 # View content of a document
@@ -86,5 +86,3 @@ post "/:filename" do
 
   redirect "/"
 end
-
-
