@@ -83,6 +83,8 @@ class CMSTest < Minitest::Test
   end
 
   def test_updating_document
+    create_document "changes.txt"
+
     post "/changes.txt", { new_content: "testing" }
     assert_equal 302, last_response.status
 
@@ -94,6 +96,39 @@ class CMSTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_includes last_response.body, "testing"
   end
+
+  def test_new_document_page
+    get "/new"
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "<input "
+    assert_includes last_response.body, "<button "
+  end
+
+  def test_document_creation
+    post "/", { new_filename: "gluben.txt" }
+
+    assert_equal 302, last_response.status
+    
+    get last_response["Location"]
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "gluben.txt was created!"
+  end
+
+  def test_document_creation_with_empty_name
+    post "/", { new_filename: "   " }
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "A name is required."
+    assert_includes last_response.body, "Add a new document:"
+  end
+
+  def test_document_creation_without_extension
+
+  end
+end
+
 
 =begin
 
@@ -159,4 +194,3 @@ MY ORIGINAL TESTS
   end
 
 =end
-end

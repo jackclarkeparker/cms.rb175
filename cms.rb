@@ -28,6 +28,34 @@ get "/" do
   erb :index
 end
 
+# View page for creating a new document
+get "/new" do
+  erb :new
+end
+
+# Halfway to constructing a REGEX to determine that a file name is valid.
+# This works, but doesn't restrict invalid characters: /.+\..+\z/
+
+# def valid_filename?(name)
+#   if name.empty?
+#     session[:message] = "A name is required."
+#   elsif !name.match? /./
+# end
+
+# Create a new document
+post "/" do
+  new_filename = params[:new_filename].strip
+
+  if new_filename.empty?
+    session[:message] = "A name is required."
+    erb :new
+  else
+    File.new(data_path + "/#{new_filename}", "w")
+    session[:message] = "#{new_filename} was created!"
+    redirect "/"
+  end
+end
+
 def build_response(path)
   content = File.read(path)
 
