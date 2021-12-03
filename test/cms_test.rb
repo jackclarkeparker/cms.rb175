@@ -28,11 +28,66 @@ class CMSTest < Minitest::Test
     end
   end
 
+  def authenticate_with_request(method, route, params = nil)
+    case method
+    when "get"
+      get route, (params || {}), 'rack.session' => {user: 'admin'}
+    when "post"
+      post route, (params || {}), 'rack.session' => {user: 'admin'}
+    end
+  end
+end
+
+class NonAuthenticatedTests < CMSTest
+  def test_unauthorised_access
+    get "/new"
+    assert_equal 302, last_response.status
+
+    get last_response["Location"]
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "Please sign in to manage documents"
+    assert_includes last_response.body, %q(<button type="submit">Sign In)
+  end
+
+  def test_signed_out_index
+    get "/"
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(<button type="submit">Sign In)
+  end
+
+  def test_viewing_signin_portal
+    get "/users/signin"
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(<input name="username" value="">)
+    assert_includes last_response.body, %q(<input name="password">)
+    assert_includes last_response.body, %q(<button type="submit">Sign In)
+  end
+
+  def test_signin_with_valid_credentials
+    post "/users", { "username" => "admin", "password" => "secret" }
+    assert_equal 302, last_response.status
+
+    get last_response["Location"]
+    assert_includes last_response.body, "Welcome!"
+    assert_includes last_response.body, "Signed in as admin"
+  end
+
+  def test_signin_with_invalid_credentials
+    post "/users", { "username" => "wrong user", "password" => "" }
+    
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Invalid Credentials"
+    assert_includes last_response.body, %q(<input name="username" value="wrong user">)
+  end
+end
+
+class AuthenticatedTests < CMSTest
   def test_index
     create_document "about.md"
     create_document "changes.txt"
 
-    get "/"
+    authenticate_with_request('get', "/")
     
     assert_equal 200, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
@@ -45,7 +100,7 @@ class CMSTest < Minitest::Test
   def test_viewing_text_document
     create_document "history.txt", "This has all happened before..."
 
-    get "/history.txt"
+    authenticate_with_request('get', "/history.txt")
 
     assert_equal 200, last_response.status
     assert_equal "text/plain", last_response["Content-Type"]
@@ -53,7 +108,7 @@ class CMSTest < Minitest::Test
   end
 
   def test_viewing_nonexistent_document
-    get "/madeupfile.ext"
+    authenticate_with_request('get', "/madeupfile.ext")
     assert_equal 302, last_response.status
 
     get last_response["Location"]
@@ -67,7 +122,7 @@ class CMSTest < Minitest::Test
   def test_viewing_markdown_document
     create_document "about.md", "# Ruby is..."
 
-    get "/about.md"
+    authenticate_with_request('get', "/about.md")
 
     assert_equal 200, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
@@ -77,7 +132,7 @@ class CMSTest < Minitest::Test
   def test_editing_document
     create_document "changes.txt"
 
-    get "/changes.txt/edit"
+    authenticate_with_request('get', "/changes.txt/edit")
     assert_equal 200, last_response.status
     assert_includes last_response.body, "<textarea"
     assert_includes last_response.body, %q(<button type="submit")
@@ -86,7 +141,7 @@ class CMSTest < Minitest::Test
   def test_updating_document
     create_document "changes.txt"
 
-    post "/changes.txt", { new_content: "testing" }
+    authenticate_with_request('post', '/changes.txt', { new_content: "testing" })
     assert_equal 302, last_response.status
 
     get last_response["Location"]
@@ -99,7 +154,7 @@ class CMSTest < Minitest::Test
   end
 
   def test_new_document_page
-    get "/new"
+    authenticate_with_request('get', "/new")
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, "<input "
@@ -107,7 +162,7 @@ class CMSTest < Minitest::Test
   end
 
   def test_document_creation
-    post "/create", { filename: "gluben.txt" }
+    authenticate_with_request('post', '/create', { filename: "gluben.txt" })
     assert_equal 302, last_response.status
     
     get last_response["Location"]
@@ -119,7 +174,7 @@ class CMSTest < Minitest::Test
   end
 
   def test_document_creation_with_empty_name
-    post "/create", { filename: "   " }
+    authenticate_with_request('post', '/create', { filename: "   " })
 
     assert_equal 422, last_response.status
     assert_includes last_response.body, "A name is required."
@@ -127,7 +182,7 @@ class CMSTest < Minitest::Test
   end
 
   def test_document_creation_without_extension
-    post "/create", { filename: "not_a_valid_filename" }
+    authenticate_with_request('post', '/create', { filename: "not_a_valid_filename" })
 
     assert_equal 422, last_response.status
     assert_includes last_response.body, "Invalid filename"
@@ -137,7 +192,7 @@ class CMSTest < Minitest::Test
   def test_document_deletion
     create_document "temporary.txt"
 
-    get "/"
+    authenticate_with_request('get', "/")
     assert_includes last_response.body, "temporary.txt"
 
     post "/temporary.txt/delete"
@@ -149,6 +204,15 @@ class CMSTest < Minitest::Test
 
     get "/"
     refute_includes last_response.body, "temporary.txt"
+  end
+
+  def test_signing_out
+    authenticate_with_request('post', '/signout')
+    assert_equal 302, last_response.status
+
+    get last_response["Location"]
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(<button type="submit">Sign In)
   end
 end
 
@@ -215,5 +279,6 @@ MY ORIGINAL TESTS
       assert_includes last_response.body, File.read(path)
     end
   end
+
 
 =end

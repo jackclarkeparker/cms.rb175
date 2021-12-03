@@ -9,8 +9,6 @@ configure do
   set :erb, :escape_html => true
 end
 
-# root = File.expand_path("..", __FILE__)
-
 def data_path
   if ENV["RACK_ENV"] == "test"
     File.expand_path("../test/data", __FILE__)
@@ -19,13 +17,61 @@ def data_path
   end
 end
 
-# View index of all documents
-get "/" do
-  pattern = File.join(data_path, "*")
-  @files = Dir.glob(pattern).map do |path|
-    File.basename(path)
+ENTRY_ROUTES = %w(/ /users/signin /users)
+
+# Restricts access for signed out users to entry routes
+before do
+  unless session[:user] || ENTRY_ROUTES.any? { |route| env["PATH_INFO"] == route }
+    session[:message] = "Please sign in to manage documents"
+    redirect "/"
   end
-  erb :index
+end
+
+# Login Portal
+get "/users/signin" do
+  erb :signin
+end
+
+def valid_credentials?(user, pswd)
+  user == "admin" && pswd == "secret"
+end
+
+# Credentials checked
+post "/users" do
+  @username = params[:username]
+  password = params[:password]
+
+  if valid_credentials?(@username, password)
+    session[:user] = @username
+    session[:message] = "Welcome!"
+    redirect "/"
+  else
+    session[:message] = "Invalid Credentials"
+    status 422
+    erb :signin
+  end
+end
+
+
+
+# View index of all documents, or landing page if not authenticated
+get "/" do
+  if session[:user]
+    pattern = File.join(data_path, "*")
+    @files = Dir.glob(pattern).map do |path|
+      File.basename(path)
+    end
+    erb :index
+  else
+    erb :enter
+  end
+end
+
+# Sign out of app
+post "/signout" do
+  session.delete(:user)
+  session[:message] = "You have been signed out."
+  redirect "/"
 end
 
 # View page for creating a new document
