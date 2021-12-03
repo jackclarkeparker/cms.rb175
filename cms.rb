@@ -36,25 +36,36 @@ end
 # Halfway to constructing a REGEX to determine that a file name is valid.
 # This works, but doesn't restrict invalid characters: /.+\..+\z/
 
-# def valid_filename?(name)
-#   if name.empty?
-#     session[:message] = "A name is required."
-#   elsif !name.match? /./
-# end
+def mismatches_pattern?(name)
+  !name.match? /[a-z0-9\-\_]+\.[a-z0-9\-\_]+/i
+end
+
+def invalid_filename?(name)
+  name.empty? || mismatches_pattern?(name)
+end
+
+def set_message_for_invalid(name)
+  if name.empty?
+    "A name is required."
+  elsif mismatches_pattern?(name)
+    "Invalid filename. \n\nExample correct name: `example.txt`\nNote: file must include an extension"
+  end
+end
 
 # Create a new document
 post "/create" do
-  new_filename = params[:new_filename].strip
-
-  if new_filename.empty?
-    session[:message] = "A name is required."
+  filename = params[:filename].strip
+ 
+  if invalid_filename?(filename)
+    session[:message] = set_message_for_invalid(filename)
     status 422
     erb :new
   else
-    file_path = File.join(data_path, new_filename)
+    # Valid
+    file_path = File.join(data_path, filename)
 
     File.new(file_path, "w")
-    session[:message] = "#{new_filename} was created!"
+    session[:message] = "#{filename} was created!"
 
     redirect "/"
   end
@@ -64,11 +75,11 @@ def build_response(path)
   content = File.read(path)
 
   case File.extname(path)
-  when ".txt"
-    headers["Content-Type"] = "text/plain"
-    content
   when ".md"
     erb markdown_to_html(content)
+  else #when ".txt"
+    headers["Content-Type"] = "text/plain"
+    content
   end
 end
 
