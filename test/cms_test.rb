@@ -39,6 +39,7 @@ class CMSTest < Minitest::Test
     assert_includes last_response.body, "about.md"
     assert_includes last_response.body, "changes.txt"
     assert_includes last_response.body, "edit"
+    assert_includes last_response.body, %q(<button type="submit">Delete)
   end
 
   def test_viewing_text_document
@@ -125,9 +126,30 @@ class CMSTest < Minitest::Test
     assert_includes last_response.body, "Add a new document:"
   end
 
-  # def test_document_creation_without_extension
+  def test_document_creation_without_extension
+    post "/create", { filename: "not_a_valid_filename" }
 
-  # end
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Invalid filename"
+    assert_includes last_response.body, "Add a new document:"
+  end
+
+  def test_document_deletion
+    create_document "temporary.txt"
+
+    get "/"
+    assert_includes last_response.body, "temporary.txt"
+
+    post "/temporary.txt/delete"
+    assert_equal 302, last_response.status
+
+    get last_response["Location"]
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "temporary.txt was deleted"
+
+    get "/"
+    refute_includes last_response.body, "temporary.txt"
+  end
 end
 
 

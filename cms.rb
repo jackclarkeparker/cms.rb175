@@ -48,7 +48,7 @@ def set_message_for_invalid(name)
   if name.empty?
     "A name is required."
   elsif mismatches_pattern?(name)
-    "Invalid filename. \n\nExample correct name: `example.txt`\nNote: file must include an extension"
+    "Invalid filename _ _ _ Example correct name: `example.txt` _ _ _ Note: file must include an extension"
   end
 end
 
@@ -126,6 +126,15 @@ post "/:filename" do
   file_path = File.join(data_path, params[:filename])
   
   process_new_content(file_path, params["new_content"])  
+
+  redirect "/"
+end
+
+post "/:filename/delete" do
+  file_path = File.join(data_path, params[:filename])
+
+  File.delete(file_path)
+  session[:message] = "#{params[:filename]} was deleted"
 
   redirect "/"
 end
