@@ -37,7 +37,7 @@ def valid_credentials?(user, pswd)
 end
 
 # Credentials checked
-post "/users" do
+post "/users/signin" do
   @username = params[:username]
   password = params[:password]
 
@@ -51,8 +51,6 @@ post "/users" do
     erb :signin
   end
 end
-
-
 
 # View index of all documents, or landing page if not authenticated
 get "/" do
@@ -68,7 +66,7 @@ get "/" do
 end
 
 # Sign out of app
-post "/signout" do
+post "/users/signout" do
   session.delete(:user)
   session[:message] = "You have been signed out."
   redirect "/"

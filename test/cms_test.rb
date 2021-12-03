@@ -65,7 +65,7 @@ class NonAuthenticatedTests < CMSTest
   end
 
   def test_signin_with_valid_credentials
-    post "/users", { "username" => "admin", "password" => "secret" }
+    post "/users/signin", { "username" => "admin", "password" => "secret" }
     assert_equal 302, last_response.status
 
     get last_response["Location"]
@@ -74,7 +74,7 @@ class NonAuthenticatedTests < CMSTest
   end
 
   def test_signin_with_invalid_credentials
-    post "/users", { "username" => "wrong user", "password" => "" }
+    post "/users/signin", { "username" => "wrong user", "password" => "" }
     
     assert_equal 422, last_response.status
     assert_includes last_response.body, "Invalid Credentials"
@@ -207,7 +207,7 @@ class AuthenticatedTests < CMSTest
   end
 
   def test_signing_out
-    authenticate_with_request('post', '/signout')
+    authenticate_with_request('post', '/users/signout')
     assert_equal 302, last_response.status
 
     get last_response["Location"]
