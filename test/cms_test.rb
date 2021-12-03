@@ -106,27 +106,28 @@ class CMSTest < Minitest::Test
   end
 
   def test_document_creation
-    post "/", { new_filename: "gluben.txt" }
-
+    post "/create", { new_filename: "gluben.txt" }
     assert_equal 302, last_response.status
     
     get last_response["Location"]
-
     assert_equal 200, last_response.status
     assert_includes last_response.body, "gluben.txt was created!"
+
+    get "/"
+    assert_includes last_response.body, 'gluben.txt'
   end
 
   def test_document_creation_with_empty_name
-    post "/", { new_filename: "   " }
+    post "/create", { new_filename: "   " }
 
-    assert_equal 200, last_response.status
+    assert_equal 422, last_response.status
     assert_includes last_response.body, "A name is required."
     assert_includes last_response.body, "Add a new document:"
   end
 
-  def test_document_creation_without_extension
+  # def test_document_creation_without_extension
 
-  end
+  # end
 end
 
 

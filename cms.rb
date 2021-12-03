@@ -43,15 +43,19 @@ end
 # end
 
 # Create a new document
-post "/" do
+post "/create" do
   new_filename = params[:new_filename].strip
 
   if new_filename.empty?
     session[:message] = "A name is required."
+    status 422
     erb :new
   else
-    File.new(data_path + "/#{new_filename}", "w")
+    file_path = File.join(data_path, new_filename)
+
+    File.new(file_path, "w")
     session[:message] = "#{new_filename} was created!"
+
     redirect "/"
   end
 end
