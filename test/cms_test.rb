@@ -22,6 +22,10 @@ class CMSTest < Minitest::Test
     FileUtils.rm_rf(data_path)
   end
 
+  def session
+    last_request.env["rack.session"]
+  end
+
   def create_document(name, content = "")
     File.open(File.join(data_path, name), "w") do |file|
       file.write(content)
@@ -35,50 +39,6 @@ class CMSTest < Minitest::Test
     when "post"
       post route, (params || {}), 'rack.session' => {user: 'admin'}
     end
-  end
-end
-
-class NonAuthenticatedTests < CMSTest
-  def test_unauthorised_access
-    get "/new"
-    assert_equal 302, last_response.status
-
-    get last_response["Location"]
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, "Please sign in to manage documents"
-    assert_includes last_response.body, %q(<button type="submit">Sign In)
-  end
-
-  def test_signed_out_index
-    get "/"
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, %q(<button type="submit">Sign In)
-  end
-
-  def test_viewing_signin_portal
-    get "/users/signin"
-
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, %q(<input name="username" value="">)
-    assert_includes last_response.body, %q(<input name="password">)
-    assert_includes last_response.body, %q(<button type="submit">Sign In)
-  end
-
-  def test_signin_with_valid_credentials
-    post "/users/signin", { "username" => "admin", "password" => "secret" }
-    assert_equal 302, last_response.status
-
-    get last_response["Location"]
-    assert_includes last_response.body, "Welcome!"
-    assert_includes last_response.body, "Signed in as admin"
-  end
-
-  def test_signin_with_invalid_credentials
-    post "/users/signin", { "username" => "wrong user", "password" => "" }
-    
-    assert_equal 422, last_response.status
-    assert_includes last_response.body, "Invalid Credentials"
-    assert_includes last_response.body, %q(<input name="username" value="wrong user">)
   end
 end
 
@@ -110,13 +70,7 @@ class AuthenticatedTests < CMSTest
   def test_viewing_nonexistent_document
     authenticate_with_request('get', "/madeupfile.ext")
     assert_equal 302, last_response.status
-
-    get last_response["Location"]
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, "madeupfile.ext does not exist."
-
-    get "/"
-    refute_includes last_response.body, "madeupfile.ext does not exist."    
+    assert_equal "madeupfile.ext does not exist.", session[:message]
   end
 
   def test_viewing_markdown_document
@@ -143,10 +97,7 @@ class AuthenticatedTests < CMSTest
 
     authenticate_with_request('post', '/changes.txt', { new_content: "testing" })
     assert_equal 302, last_response.status
-
-    get last_response["Location"]
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, "changes.txt has been updated!"
+    assert_equal "changes.txt has been updated!", session[:message]
 
     get "/changes.txt"
     assert_equal 200, last_response.status
@@ -163,14 +114,12 @@ class AuthenticatedTests < CMSTest
 
   def test_document_creation
     authenticate_with_request('post', '/create', { filename: "gluben.txt" })
-    assert_equal 302, last_response.status
     
-    get last_response["Location"]
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, "gluben.txt was created!"
-
+    assert_equal 302, last_response.status
+    assert_equal "gluben.txt was created!", session[:message]
+    
     get "/"
-    assert_includes last_response.body, 'gluben.txt'
+    assert_includes last_response.body, 'href="/gluben.txt"'
   end
 
   def test_document_creation_with_empty_name
@@ -193,29 +142,64 @@ class AuthenticatedTests < CMSTest
     create_document "temporary.txt"
 
     authenticate_with_request('get', "/")
-    assert_includes last_response.body, "temporary.txt"
+    assert_includes last_response.body, 'href="/temporary.txt"'
 
     post "/temporary.txt/delete"
     assert_equal 302, last_response.status
-
-    get last_response["Location"]
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, "temporary.txt was deleted"
+    assert_equal "temporary.txt was deleted", session[:message]
 
     get "/"
-    refute_includes last_response.body, "temporary.txt"
+    refute_includes last_response.body, 'href="/temporary.txt"'
   end
 
   def test_signing_out
     authenticate_with_request('post', '/users/signout')
     assert_equal 302, last_response.status
-
-    get last_response["Location"]
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, %q(<button type="submit">Sign In)
+    assert_nil session[:user]
+    assert_equal "You have been signed out.", session[:message]
   end
 end
 
+class NonAuthenticatedTests < CMSTest
+  def test_unauthorised_access
+    get "/new"
+    assert_equal 302, last_response.status
+    assert_equal "Please sign in to manage documents", session[:message]
+  end
+
+  def test_signed_out_index
+    get "/"
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(<button type="submit">Sign In)
+  end
+
+  def test_viewing_signin_portal
+    get "/users/signin"
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(<input name="username" value="">)
+    assert_includes last_response.body, %q(<input name="password">)
+    assert_includes last_response.body, %q(<button type="submit">Sign In)
+  end
+
+  def test_signin_with_valid_credentials
+    post "/users/signin", { "username" => "admin", "password" => "secret" }
+    assert_equal 302, last_response.status
+    assert_equal "Welcome!", session[:message]
+    assert_equal "admin", session[:user]
+
+    get last_response["Location"]
+    assert_includes last_response.body, "Signed in as admin"
+  end
+
+  def test_signin_with_invalid_credentials
+    post "/users/signin", { "username" => "wrong user", "password" => "" }
+    
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Invalid Credentials"
+    assert_includes last_response.body, %q(<input name="username" value="wrong user">)
+  end
+end
 
 =begin
 
