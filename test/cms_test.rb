@@ -36,17 +36,6 @@ class CMSTest < Minitest::Test
     { 'rack.session' => { user: 'admin' } }
   end
 
-  def authenticate_with_request(method, route, params = nil)
-    case method
-    when "get"
-      get route, (params || {}), 'rack.session' => {user: 'admin'}
-    when "post"
-      post route, (params || {}), 'rack.session' => {user: 'admin'}
-    end
-  end
-end
-
-class AuthenticatedTests < CMSTest
   def test_index
     create_document "about.md"
     create_document "changes.txt"
@@ -167,9 +156,7 @@ class AuthenticatedTests < CMSTest
     assert_nil session[:user]
     assert_equal "You have been signed out.", session[:message]
   end
-end
 
-class NonAuthenticatedTests < CMSTest
   def test_unauthorised_access
     create_document 'temporary.txt'  
 
@@ -202,13 +189,13 @@ class NonAuthenticatedTests < CMSTest
   end
 
   def test_signin_with_valid_credentials
-    post "/users/signin", { "username" => "admin", "password" => "secret" }
+    post "/users/signin", { "username" => "jack", "password" => "jackspassword" }
     assert_equal 302, last_response.status
     assert_equal "Welcome!", session[:message]
-    assert_equal "admin", session[:user]
+    assert_equal "jack", session[:user]
 
     get last_response["Location"]
-    assert_includes last_response.body, "Signed in as admin"
+    assert_includes last_response.body, "Signed in as jack"
   end
 
   def test_signin_with_invalid_credentials

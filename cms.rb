@@ -1,7 +1,9 @@
 require 'sinatra'
 require 'sinatra/reloader'
 require 'tilt/erubis'
+
 require 'redcarpet'
+require 'yaml'
 
 configure do
   enable :sessions
@@ -29,8 +31,10 @@ get "/users/signin" do
   erb :signin
 end
 
-def valid_credentials?(user, pswd)
-  user == "admin" && pswd == "secret"
+def valid_credentials?(submitted_username, submitted_password)
+  YAML.load_file('users.yml').any? do |user, pswd|
+    user == submitted_username && pswd == submitted_password
+  end
 end
 
 # Credentials checked
