@@ -31,8 +31,19 @@ get "/users/signin" do
   erb :signin
 end
 
+def load_user_credentials
+  credentials_path = if ENV["RACK_ENV"] == 'test'
+    File.expand_path("../test/users.yml", __FILE__)
+  else
+    File.expand_path("../users.yml", __FILE__)
+  end
+  YAML.load_file(credentials_path)
+end
+
 def valid_credentials?(submitted_username, submitted_password)
-  YAML.load_file('users.yml').any? do |user, pswd|
+  valid_users = load_user_credentials
+
+  valid_users.any? do |user, pswd|
     user == submitted_username && pswd == submitted_password
   end
 end
