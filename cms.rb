@@ -17,12 +17,9 @@ def data_path
   end
 end
 
-ENTRY_ROUTES = %w(/ /users/signin /users)
-
-# Restricts access for signed out users to entry routes
-before do
-  unless session[:user] || ENTRY_ROUTES.any? { |route| env["PATH_INFO"] == route }
-    session[:message] = "Please sign in to manage documents"
+def redirect_if_signed_out
+  if session[:user].nil?
+    session[:message] = "You must be signed in to do that."
     redirect "/"
   end
 end
@@ -54,15 +51,11 @@ end
 
 # View index of all documents, or landing page if not authenticated
 get "/" do
-  if session[:user]
-    pattern = File.join(data_path, "*")
-    @files = Dir.glob(pattern).map do |path|
-      File.basename(path)
-    end
-    erb :index
-  else
-    erb :enter
+  pattern = File.join(data_path, "*")
+  @files = Dir.glob(pattern).map do |path|
+    File.basename(path)
   end
+  erb :index
 end
 
 # Sign out of app
@@ -74,11 +67,10 @@ end
 
 # View page for creating a new document
 get "/new" do
+  redirect_if_signed_out
+
   erb :new
 end
-
-# Halfway to constructing a REGEX to determine that a file name is valid.
-# This works, but doesn't restrict invalid characters: /.+\..+\z/
 
 def mismatches_pattern?(name)
   !name.match? /[a-z0-9\-\_]+\.[a-z0-9\-\_]+/i
@@ -98,6 +90,8 @@ end
 
 # Create a new document
 post "/create" do
+  redirect_if_signed_out
+
   filename = params[:filename].strip
  
   if invalid_filename?(filename)
@@ -146,6 +140,8 @@ end
 
 # Visit editing page for a document
 get "/:filename/edit" do
+  redirect_if_signed_out
+
   file_path = File.join(data_path, params[:filename])
 
   @filename = params[:filename]
@@ -167,6 +163,8 @@ end
 
 # Update a document
 post "/:filename" do
+  redirect_if_signed_out
+
   file_path = File.join(data_path, params[:filename])
   
   process_new_content(file_path, params["new_content"])  
@@ -174,7 +172,10 @@ post "/:filename" do
   redirect "/"
 end
 
+# Delete a document
 post "/:filename/delete" do
+  redirect_if_signed_out
+
   file_path = File.join(data_path, params[:filename])
 
   File.delete(file_path)

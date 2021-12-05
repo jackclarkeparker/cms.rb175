@@ -32,6 +32,10 @@ class CMSTest < Minitest::Test
     end
   end
 
+  def admin_session
+    { 'rack.session' => { user: 'admin' } }
+  end
+
   def authenticate_with_request(method, route, params = nil)
     case method
     when "get"
@@ -47,7 +51,7 @@ class AuthenticatedTests < CMSTest
     create_document "about.md"
     create_document "changes.txt"
 
-    authenticate_with_request('get', "/")
+    get '/'
     
     assert_equal 200, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
@@ -60,7 +64,7 @@ class AuthenticatedTests < CMSTest
   def test_viewing_text_document
     create_document "history.txt", "This has all happened before..."
 
-    authenticate_with_request('get', "/history.txt")
+    get '/history.txt'
 
     assert_equal 200, last_response.status
     assert_equal "text/plain", last_response["Content-Type"]
@@ -68,7 +72,8 @@ class AuthenticatedTests < CMSTest
   end
 
   def test_viewing_nonexistent_document
-    authenticate_with_request('get', "/madeupfile.ext")
+    get '/madeupfile.ext'
+
     assert_equal 302, last_response.status
     assert_equal "madeupfile.ext does not exist.", session[:message]
   end
@@ -76,7 +81,7 @@ class AuthenticatedTests < CMSTest
   def test_viewing_markdown_document
     create_document "about.md", "# Ruby is..."
 
-    authenticate_with_request('get', "/about.md")
+    get '/about.md'
 
     assert_equal 200, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
@@ -86,7 +91,8 @@ class AuthenticatedTests < CMSTest
   def test_editing_document
     create_document "changes.txt"
 
-    authenticate_with_request('get', "/changes.txt/edit")
+    get '/changes.txt/edit', {}, admin_session
+
     assert_equal 200, last_response.status
     assert_includes last_response.body, "<textarea"
     assert_includes last_response.body, %q(<button type="submit")
@@ -95,7 +101,8 @@ class AuthenticatedTests < CMSTest
   def test_updating_document
     create_document "changes.txt"
 
-    authenticate_with_request('post', '/changes.txt', { new_content: "testing" })
+    post '/changes.txt', { new_content: 'testing' }, admin_session
+
     assert_equal 302, last_response.status
     assert_equal "changes.txt has been updated!", session[:message]
 
@@ -105,7 +112,7 @@ class AuthenticatedTests < CMSTest
   end
 
   def test_new_document_page
-    authenticate_with_request('get', "/new")
+    get '/new', {}, admin_session
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, "<input "
@@ -113,8 +120,8 @@ class AuthenticatedTests < CMSTest
   end
 
   def test_document_creation
-    authenticate_with_request('post', '/create', { filename: "gluben.txt" })
-    
+    post '/create', { filename: "gluben.txt" }, admin_session
+
     assert_equal 302, last_response.status
     assert_equal "gluben.txt was created!", session[:message]
     
@@ -123,7 +130,7 @@ class AuthenticatedTests < CMSTest
   end
 
   def test_document_creation_with_empty_name
-    authenticate_with_request('post', '/create', { filename: "   " })
+    post '/create', { filename: '   ' }, admin_session
 
     assert_equal 422, last_response.status
     assert_includes last_response.body, "A name is required."
@@ -131,7 +138,7 @@ class AuthenticatedTests < CMSTest
   end
 
   def test_document_creation_without_extension
-    authenticate_with_request('post', '/create', { filename: "not_a_valid_filename" })
+    post '/create', { filename: 'not_a_valid_filename' }, admin_session
 
     assert_equal 422, last_response.status
     assert_includes last_response.body, "Invalid filename"
@@ -141,7 +148,8 @@ class AuthenticatedTests < CMSTest
   def test_document_deletion
     create_document "temporary.txt"
 
-    authenticate_with_request('get', "/")
+    get '/', {}, admin_session
+
     assert_includes last_response.body, 'href="/temporary.txt"'
 
     post "/temporary.txt/delete"
@@ -153,7 +161,8 @@ class AuthenticatedTests < CMSTest
   end
 
   def test_signing_out
-    authenticate_with_request('post', '/users/signout')
+    post '/users/signout'
+
     assert_equal 302, last_response.status
     assert_nil session[:user]
     assert_equal "You have been signed out.", session[:message]
@@ -162,15 +171,25 @@ end
 
 class NonAuthenticatedTests < CMSTest
   def test_unauthorised_access
-    get "/new"
+    create_document 'temporary.txt'  
+
+    post '/temporary.txt/delete'
     assert_equal 302, last_response.status
-    assert_equal "Please sign in to manage documents", session[:message]
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    get '/temporary.txt/edit'
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    get '/new'
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
   end
 
   def test_signed_out_index
     get "/"
     assert_equal 200, last_response.status
-    assert_includes last_response.body, %q(<button type="submit">Sign In)
+    assert_includes last_response.body, "Sign In"
   end
 
   def test_viewing_signin_portal
