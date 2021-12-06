@@ -1,3 +1,8 @@
+<form action="/<%= @filename %>/change_name" method="post">
+  <input name="new_filename" value="<%= @new_filename || @filename %>">
+  <button type="submit">Change File Name</button>
+</form>
+
 <p>Edit content of <%= @filename %>:</p>
 <form action="/<%= @filename %>" method="post">
   <textarea name="new_content" rows="20" cols="80"><%= @content %></textarea>

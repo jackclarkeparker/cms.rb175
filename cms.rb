@@ -164,14 +164,18 @@ get "/:filename" do
   end  
 end
 
+def prepare_edit_data(filename)
+  file_path = File.join(data_path, filename)
+
+  @filename = filename
+  @content = File.read(file_path)
+end
+
 # Visit editing page for a document
 get "/:filename/edit" do
   redirect_if_signed_out
 
-  file_path = File.join(data_path, params[:filename])
-
-  @filename = params[:filename]
-  @content = File.read(file_path)
+  prepare_edit_data(params[:filename])
 
   erb :edit
 end
@@ -197,6 +201,41 @@ post "/:filename" do
 
   redirect "/"
 end
+
+def rename_file(oldname, newname)
+  old_file_path = File.join(data_path, oldname)
+
+  # Collect content and delete old file
+  content = File.read(old_file_path)
+  File.delete(old_file_path)
+
+  # Create file with new name and existing content
+  new_file_path = File.join(data_path, newname)
+  File.write(new_file_path, content)
+end
+
+post '/:filename/change_name' do
+  redirect_if_signed_out
+
+  @new_filename = params[:new_filename].strip
+ 
+  if invalid_filename?(@new_filename)
+    session[:message] = set_message_for_invalid(@new_filename)
+    status 422
+    prepare_edit_data(params[:filename])
+    erb :edit
+  else
+    rename_file(params[:filename], @new_filename)
+    session[:message] = "File now called #{@new_filename}!"
+    redirect "/"
+  end
+end
+
+# post "/:filename/duplicate" do
+#   redirect_if_signed_out
+
+  
+# end
 
 # Delete a document
 post "/:filename/delete" do
