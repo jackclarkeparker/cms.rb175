@@ -89,7 +89,7 @@ get "/new" do
 end
 
 def mismatches_pattern?(name)
-  !name.match? /[a-z0-9\-\_]+\.[a-z0-9\-\_]+/i
+  !name.match? /[a-z0-9\-\_]+(.txt|.md)/i
 end
 
 def invalid_filename?(name)
@@ -100,7 +100,7 @@ def set_message_for_invalid(name)
   if name.empty?
     "A name is required."
   elsif mismatches_pattern?(name)
-    "Invalid filename _ _ _ Example correct name: `example.txt` _ _ _ Note: file must include an extension"
+    "Invalid filename -- Supported file types include: .txt, .md"
   end
 end
 
