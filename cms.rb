@@ -4,6 +4,7 @@ require 'tilt/erubis'
 
 require 'redcarpet'
 require 'yaml'
+require 'bcrypt'
 
 configure do
   enable :sessions
@@ -44,7 +45,7 @@ def valid_credentials?(submitted_username, submitted_password)
   valid_users = load_user_credentials
 
   valid_users.any? do |user, pswd|
-    user == submitted_username && pswd == submitted_password
+    user == submitted_username && BCrypt::Password.new(pswd) == submitted_password
   end
 end
 

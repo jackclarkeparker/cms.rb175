@@ -3,6 +3,7 @@ GEM
   specs:
     ast (2.4.2)
     backports (3.21.0)
+    bcrypt (3.1.16)
     erubis (2.7.0)
     minitest (5.14.4)
     multi_json (1.15.0)
@@ -48,6 +49,7 @@ PLATFORMS
   x86_64-darwin-18
 
 DEPENDENCIES
+  bcrypt
   erubis
   minitest
   rack-test
