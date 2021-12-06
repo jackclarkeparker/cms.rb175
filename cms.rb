@@ -20,6 +20,13 @@ def data_path
   end
 end
 
+def data_files
+  pattern = File.join(data_path, "*")
+  @files = Dir.glob(pattern).map do |path|
+    File.basename(path)
+  end
+end
+
 def redirect_if_signed_out
   if session[:user].nil?
     session[:message] = "You must be signed in to do that."
@@ -67,10 +74,7 @@ end
 
 # View index of all documents, or landing page if not authenticated
 get "/" do
-  pattern = File.join(data_path, "*")
-  @files = Dir.glob(pattern).map do |path|
-    File.basename(path)
-  end
+  data_files
   erb :index
 end
 
@@ -92,8 +96,12 @@ def mismatches_pattern?(name)
   !name.match? /[a-z0-9\-\_]+(.txt|.md)/i
 end
 
+def already_in_use?(name)
+  data_files.any? { |file| file == name }
+end
+
 def invalid_filename?(name)
-  name.empty? || mismatches_pattern?(name)
+  name.empty? || mismatches_pattern?(name) || already_in_use?(name)
 end
 
 def set_message_for_invalid(name)
@@ -101,6 +109,8 @@ def set_message_for_invalid(name)
     "A name is required."
   elsif mismatches_pattern?(name)
     "Invalid filename -- Supported file types include: .txt, .md"
+  elsif already_in_use?(name)
+    "Name already in use, please assign with a unique file name."
   end
 end
 
