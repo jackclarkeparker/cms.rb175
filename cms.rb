@@ -108,7 +108,7 @@ def set_message_for_invalid(name)
   if name.empty?
     "A name is required."
   elsif mismatches_pattern?(name)
-    "Invalid filename -- Supported file types include: .txt, .md"
+    "Invalid filename -- Supported file types: .txt .md"
   elsif already_in_use?(name)
     "Name already in use, please assign with a unique file name."
   end

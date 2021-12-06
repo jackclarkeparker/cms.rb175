@@ -130,7 +130,28 @@ class CMSTest < Minitest::Test
     post '/create', { filename: 'not_a_valid_filename' }, admin_session
 
     assert_equal 422, last_response.status
-    assert_includes last_response.body, "Invalid filename"
+    assert_includes last_response.body, "Invalid filename -- "\
+                                        "Supported file types: .txt .md"
+    assert_includes last_response.body, "Add a new document:"
+  end
+
+  def test_document_creation_with_invalid_extension
+    post '/create', { filename: 'file.rb' }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Invalid filename -- "\
+                                        "Supported file types: .txt .md"
+    assert_includes last_response.body, "Add a new document:"
+  end
+
+  def test_document_creation_with_duplicate_name
+    create_document 'file.txt'
+
+    post '/create', { filename: 'file.txt' }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Name already in use, please assign "\
+                                        "with a unique file name."
     assert_includes last_response.body, "Add a new document:"
   end
 
