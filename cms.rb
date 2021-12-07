@@ -5,6 +5,7 @@ require 'tilt/erubis'
 require 'redcarpet'
 require 'yaml'
 require 'bcrypt'
+require 'pry'
 
 configure do
   enable :sessions
@@ -22,7 +23,7 @@ end
 
 def data_files
   pattern = File.join(data_path, "*")
-  @files = Dir.glob(pattern).map do |path|
+  Dir.glob(pattern).map do |path|
     File.basename(path)
   end
 end
@@ -34,26 +35,15 @@ def redirect_if_signed_out
   end
 end
 
+# View index of all documents
+get "/" do
+  @files = data_files
+  erb :index
+end
+
 # Login Portal
 get "/users/signin" do
   erb :signin
-end
-
-def load_user_credentials
-  credentials_path = if ENV["RACK_ENV"] == 'test'
-    File.expand_path("../test/users.yml", __FILE__)
-  else
-    File.expand_path("../users.yml", __FILE__)
-  end
-  YAML.load_file(credentials_path)
-end
-
-def valid_credentials?(submitted_username, submitted_password)
-  valid_users = load_user_credentials
-
-  valid_users.any? do |user, pswd|
-    user == submitted_username && BCrypt::Password.new(pswd) == submitted_password
-  end
 end
 
 # Credentials checked
@@ -72,10 +62,21 @@ post "/users/signin" do
   end
 end
 
-# View index of all documents, or landing page if not authenticated
-get "/" do
-  data_files
-  erb :index
+def valid_credentials?(submitted_username, submitted_password)
+  valid_users = load_user_credentials
+
+  valid_users.any? do |user, pswd|
+    user == submitted_username && BCrypt::Password.new(pswd) == submitted_password
+  end
+end
+
+def load_user_credentials
+  credentials_path = if ENV["RACK_ENV"] == 'test'
+    File.expand_path("../test/users.yml", __FILE__)
+  else
+    File.expand_path("../users.yml", __FILE__)
+  end
+  YAML.load_file(credentials_path)
 end
 
 # Sign out of app
@@ -92,16 +93,36 @@ get "/new" do
   erb :new
 end
 
+# Create a new document
+post "/create" do
+  redirect_if_signed_out
+
+  filename = params[:filename].strip
+ 
+  if invalid_filename?(filename)
+    session[:message] = set_message_for_invalid(filename)
+    status 422
+    erb :new
+  else
+    file_path = File.join(data_path, filename)
+
+    File.new(file_path, "w")
+    session[:message] = "#{filename} was created!"
+
+    redirect "/"
+  end
+end
+
+def invalid_filename?(name)
+  name.empty? || mismatches_pattern?(name) || already_in_use?(name)
+end
+
 def mismatches_pattern?(name)
   !name.match? /[a-z0-9\-\_]+(.txt|.md)/i
 end
 
 def already_in_use?(name)
   data_files.any? { |file| file == name }
-end
-
-def invalid_filename?(name)
-  name.empty? || mismatches_pattern?(name) || already_in_use?(name)
 end
 
 def set_message_for_invalid(name)
@@ -114,25 +135,16 @@ def set_message_for_invalid(name)
   end
 end
 
-# Create a new document
-post "/create" do
-  redirect_if_signed_out
+# View content of a document
+get "/:filename" do
+  file_path = File.join(data_path, params[:filename])
 
-  filename = params[:filename].strip
- 
-  if invalid_filename?(filename)
-    session[:message] = set_message_for_invalid(filename)
-    status 422
-    erb :new
+  if File.file?(file_path)
+    build_response(file_path)
   else
-    # Valid
-    file_path = File.join(data_path, filename)
-
-    File.new(file_path, "w")
-    session[:message] = "#{filename} was created!"
-
+    session[:message] = "#{params[:filename]} does not exist."
     redirect "/"
-  end
+  end  
 end
 
 def build_response(path)
@@ -152,25 +164,6 @@ def markdown_to_html(text)
   markdown.render(text)
 end
 
-# View content of a document
-get "/:filename" do
-  file_path = File.join(data_path, params[:filename])
-
-  if File.file?(file_path)
-    build_response(file_path)
-  else
-    session[:message] = "#{params[:filename]} does not exist."
-    redirect "/"
-  end  
-end
-
-def prepare_edit_data(filename)
-  file_path = File.join(data_path, filename)
-
-  @filename = filename
-  @content = File.read(file_path)
-end
-
 # Visit editing page for a document
 get "/:filename/edit" do
   redirect_if_signed_out
@@ -180,18 +173,13 @@ get "/:filename/edit" do
   erb :edit
 end
 
-def content_changed?(path, new_content)
-  new_content != File.read(path)
+def prepare_edit_data(filename)
+  file_path = File.join(data_path, filename)
+  @filename = filename
+  @content = File.read(file_path)
 end
 
-def process_new_content(file_path, new_content)
-  if content_changed?(file_path, new_content)
-    session[:message] = "#{File.basename(file_path)} has been updated!"
-    File.write(file_path, new_content)
-  end
-end
-
-# Update a document
+# Update a document's content
 post "/:filename" do
   redirect_if_signed_out
 
@@ -202,18 +190,18 @@ post "/:filename" do
   redirect "/"
 end
 
-def rename_file(oldname, newname)
-  old_file_path = File.join(data_path, oldname)
-
-  # Collect content and delete old file
-  content = File.read(old_file_path)
-  File.delete(old_file_path)
-
-  # Create file with new name and existing content
-  new_file_path = File.join(data_path, newname)
-  File.write(new_file_path, content)
+def process_new_content(file_path, new_content)
+  if content_changed?(file_path, new_content)
+    session[:message] = "#{File.basename(file_path)} has been updated!"
+    File.write(file_path, new_content)
+  end
 end
 
+def content_changed?(path, new_content)
+  new_content != File.read(path)
+end
+
+# Change the name of a document
 post '/:filename/change_name' do
   redirect_if_signed_out
 
@@ -226,16 +214,50 @@ post '/:filename/change_name' do
     erb :edit
   else
     rename_file(params[:filename], @new_filename)
-    session[:message] = "File now called #{@new_filename}!"
+    session[:message] = "File is now called #{@new_filename}!"
     redirect "/"
   end
 end
 
-# post "/:filename/duplicate" do
-#   redirect_if_signed_out
+def rename_file(oldname, newname)
+  old_file_path = File.join(data_path, oldname)
 
+  content = File.read(old_file_path)
+  File.delete(old_file_path)
+
+  new_file_path = File.join(data_path, newname)
+  File.write(new_file_path, content)
+end
+
+# Duplicate a document
+post "/:filename/duplicate" do
+  redirect_if_signed_out
+
+  new_name = duplicate_name(params[:filename])
   
-# end
+  new_file_path = File.join(data_path, new_name)
+  old_file_path = File.join(data_path, params[:filename])
+
+  File.write(new_file_path, File.read(old_file_path))
+  session[:message] = "#{new_name} was created!"
+
+  redirect '/'  
+end
+
+def duplicate_name(existing_file)
+  files = data_files()
+
+  basename = "copy_of_#{existing_file}"
+  return basename unless files.include? (basename)
+
+  version_number = 1
+
+  loop do
+    dup_name = basename + "(#{version_number})"
+    return dup_name unless files.include? (dup_name)
+    version_number += 1
+  end
+end
 
 # Delete a document
 post "/:filename/delete" do
@@ -248,4 +270,3 @@ post "/:filename/delete" do
 
   redirect "/"
 end
-

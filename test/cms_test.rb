@@ -77,29 +77,6 @@ class CMSTest < Minitest::Test
     assert_includes last_response.body, "<h1>Ruby is...</h1>"
   end
 
-  def test_editing_document
-    create_document "changes.txt"
-
-    get '/changes.txt/edit', {}, admin_session
-
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, "<textarea"
-    assert_includes last_response.body, %q(<button type="submit")
-  end
-
-  def test_updating_document
-    create_document "changes.txt"
-
-    post '/changes.txt', { new_content: 'testing' }, admin_session
-
-    assert_equal 302, last_response.status
-    assert_equal "changes.txt has been updated!", session[:message]
-
-    get "/changes.txt"
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, "testing"
-  end
-
   def test_new_document_page
     get '/new', {}, admin_session
 
@@ -153,6 +130,50 @@ class CMSTest < Minitest::Test
     assert_includes last_response.body, "Name already in use, please assign "\
                                         "with a unique file name."
     assert_includes last_response.body, "Add a new document:"
+  end
+
+  def test_viewing_editing_page
+    create_document "changes.txt"
+
+    get '/changes.txt/edit', {}, admin_session
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "<p>Edit content of changes.txt:</p>"
+  end
+
+  def test_updating_document
+    create_document "changes.txt"
+
+    post '/changes.txt', { new_content: 'testing' }, admin_session
+
+    assert_equal 302, last_response.status
+    assert_equal "changes.txt has been updated!", session[:message]
+
+    get "/changes.txt"
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "testing"
+  end
+
+  def test_rename_document
+    create_document "temporary.txt"
+
+    post "/temporary.txt/change_name", { new_filename: "renamed.txt" }, admin_session
+    assert_equal 302, last_response.status
+    assert_equal "File is now called renamed.txt!", session[:message]
+
+    get last_response["Location"]
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(href="/renamed.txt")
+  end
+
+  def test_rename_document_with_empty_name
+    create_document "temporary.txt"
+
+    post "/temporary.txt/change_name", { new_filename: "  " }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "A name is required."
+    assert_includes last_response.body, "<p>Edit content of temporary.txt:</p>"
   end
 
   def test_document_deletion
@@ -210,9 +231,8 @@ class CMSTest < Minitest::Test
   end
 
   def test_signin_with_valid_credentials
-    
-    
     post "/users/signin", { "username" => "admin", "password" => "secret" }
+
     assert_equal 302, last_response.status
     assert_equal "Welcome!", session[:message]
     assert_equal "admin", session[:user]
@@ -227,6 +247,36 @@ class CMSTest < Minitest::Test
     assert_equal 422, last_response.status
     assert_includes last_response.body, "Invalid Credentials"
     assert_includes last_response.body, %q(<input name="username" value="wrong user">)
+  end
+
+  def test_duplicate
+    create_document "temporary.txt"
+
+    post "/temporary.txt/duplicate", {}, admin_session
+    
+    assert_equal 302, last_response.status
+    assert_equal "copy_of_temporary.txt was created!", session[:message]
+
+    get last_response["Location"]
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(href="/copy_of_temporary.txt")
+  end
+
+  def test_duplicate_2
+    create_document "temporary.txt"
+    create_document "copy_of_temporary.txt"
+    create_document "copy_of_temporary.txt(1)"
+
+    post "/temporary.txt/duplicate", {}, admin_session
+    
+    assert_equal 302, last_response.status
+    assert_equal "copy_of_temporary.txt(2) was created!", session[:message]
+
+    get last_response["Location"]
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(href="/copy_of_temporary.txt(2)")
   end
 end
 
