@@ -14,7 +14,7 @@ configure do
 end
 
 def redirect_if_signed_out
-  if session[:user].nil?
+  if session[:username].nil?
     session[:message] = "You must be signed in to do that."
     redirect "/"
   end
@@ -68,20 +68,20 @@ post "/users/signin" do
   password = params[:password]
 
   if entry_credentials_valid?(@username, password)
-    session[:user] = @username
+    session[:username] = @username
     session[:message] = "Welcome!"
     redirect "/"
   else
-    session[:message] = "Invalid Credentials"
     status 422
+    session[:message] = "Invalid Credentials"
     erb :signin
   end
 end
 
 def entry_credentials_valid?(submitted_username, submitted_password)
-  valid_users = load_user_credentials
+  users = load_user_credentials
 
-  valid_users.any? do |user, pswd|
+  users.any? do |user, pswd|
     user == submitted_username && BCrypt::Password.new(pswd) == submitted_password
   end
 end
@@ -96,7 +96,7 @@ end
 
 # Sign out of app
 post "/users/signout" do
-  session.delete(:user)
+  session.delete(:username)
   session[:message] = "You have been signed out."
   redirect "/"
 end
@@ -113,7 +113,7 @@ post "/users/create" do
  
   if creation_credentials_valid?(@username, password)
     create_user(@username, password)
-    session[:message] = "New user created!"
+    session[:message] = "New user: #{@username} created!"
     redirect "/"
   else
     session[:message] = set_message_for_invalid_signup(@username, password)
@@ -153,12 +153,12 @@ end
 def set_message_for_invalid_signup(username, password)
   case 
   when empty_credentials?(username, password)
-    "Missing either username or password"
+    "Missing either username, password, or both!"
   when contains_whitespace?(username, password)
     "Credentials cannot include spaces"
   when password_too_short?(password)
     "Password must be at least 8 characters long"
-  when name_already_in_use?(username)
+  when username_already_in_use?(username)
     "That username is already in use, please try another"
   end
 end
@@ -166,6 +166,31 @@ end
 def create_user(username, password)
   existing_users = load_user_credentials
   existing_users[username] = BCrypt::Password.create(password).to_s
+  File.open(credentials_path, 'w') do |file|
+    file.write(Psych.dump(existing_users))
+  end
+end
+
+# Visit delete user page
+get "/users/:username/delete" do
+  redirect_if_signed_out
+
+  erb :delete_user
+end
+
+# Delete current user
+post "/users/:username/delete" do
+  redirect_if_signed_out
+  delete_user(params[:username])
+  session.delete(:username)
+  session[:message] = "User: #{params[:username]} has been deleted."
+
+  redirect "/"
+end
+
+def delete_user(username)
+  existing_users = load_user_credentials
+  existing_users.delete(username)
   File.open(credentials_path, 'w') do |file|
     file.write(Psych.dump(existing_users))
   end

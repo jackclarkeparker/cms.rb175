@@ -20,6 +20,7 @@ class CMSTest < Minitest::Test
 
   def teardown
     FileUtils.rm_rf(data_path)
+    reset_users
   end
 
   def session
@@ -32,8 +33,18 @@ class CMSTest < Minitest::Test
     end
   end
 
+  def reset_users
+    default_users = {
+      "admin" => "$2a$12$cJ2hqURn307.0tqz1OUI5..IPqvX2TZLYCzwigmQkPG6MBxhwXDYe"
+    }
+
+    File.open(credentials_path, 'w') do |file|
+      file.write(Psych.dump(default_users))
+    end
+  end
+
   def admin_session
-    { 'rack.session' => { user: 'admin' } }
+    { 'rack.session' => { username: 'admin' } }
   end
 
   def test_index
@@ -56,30 +67,6 @@ class CMSTest < Minitest::Test
     assert_includes last_response.body, %q(<a href="/users/signin">Sign In)
   end
 
-  def test_signup_page
-
-  end
-
-  def test_create_new_user
-
-  end
-
-  def test_create_new_user__username_in_use
-
-  end
-
-  def test_create_new_user__password_too_short
-
-  end
-
-  def test_create_new_user__empty_credential
-
-  end
-
-  def test_create_new_user__credentials_contain_whitespace
-
-  end  
-
   def test_viewing_signin_portal
     get "/users/signin"
 
@@ -90,14 +77,14 @@ class CMSTest < Minitest::Test
   end
 
   def test_signin_with_valid_credentials
-    post "/users/signin", { "username" => "admin", "password" => "secret" }
+    post "/users/signin", { "username" => "admin", "password" => "test_password" }
 
     assert_equal 302, last_response.status
     assert_equal "Welcome!", session[:message]
-    assert_equal "admin", session[:user]
+    assert_equal "admin", session[:username]
 
     get last_response["Location"]
-    assert_includes last_response.body, "Signed in as admin"
+    assert_includes last_response.body, %q(<p class="user-status">Signed in as admin.)
   end
 
   def test_signin_with_invalid_credentials
@@ -109,12 +96,66 @@ class CMSTest < Minitest::Test
   end
 
   def test_signing_out
-    post '/users/signout'
+    post '/users/signout', {}, admin_session
 
     assert_equal 302, last_response.status
     assert_nil session[:user]
     assert_equal "You have been signed out.", session[:message]
   end
+
+  def test_signup_page
+    get "/users/signup"
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(<label for="username">Choose a Username:)
+    assert_includes last_response.body, %q(<label for="password">Choose a Password:)
+    assert_includes last_response.body, %q(<button type="submit">Create new user)
+  end
+
+  def test_create_new_user
+    post "/users/create", { username: 'John', password: 'password' }
+
+    assert_equal 302, last_response.status
+    assert_equal "New user: John created!", session[:message]
+
+    post "/users/signin", { username: "John", password: "password" }
+    
+    get last_response["Location"]
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(<p class="user-status">Signed in as John.)
+  end
+
+  def test_create_new_user__password_too_short
+    post "/users/create", { username: "John", password: 'short' }
+    
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Password must be at least 8 characters long"
+    assert_includes last_response.body, %q(<input name="username" value="John">)
+  end
+
+  def test_create_new_user__empty_credential
+    post "/users/create", { username: "John", password: '' }
+    
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Missing either username, password, or both!"
+  end
+
+  def test_create_new_user__credentials_contain_whitespace
+    post "/users/create", { username: "John", password: 'pass word' }
+    
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Credentials cannot include spaces"
+  end
+
+  def test_create_new_user__username_in_use
+    create_user("John", "password")
+
+    post "/users/create", { username: "John", password: 'another_password' }
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "That username is already in use, please try another"
+  end  
 
   def test_viewing_text_document
     create_document "history.txt", "This has all happened before..."

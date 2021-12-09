@@ -31,13 +31,18 @@
 
 <p><a href="/images/new">Add Image</a></p>
 
-<% if session[:user] %>
+<% if session[:username] %>
   <form class="inline" method="post" action="/users/signout">
-    <p class="user-status">Signed in as <%= session[:user] %>.
+    <p class="user-status">Signed in as <%= session[:username] %>.
     <button type="submit">Sign Out</button>
     </p>
-  </form> 
+  </form>
 <% else %>
   <p class="user-status"><a href="/users/signin">Sign In</a></p>
 <% end %>
 <a class="user-status" href="/users/signup"><em>Sign Up</em></a>
+
+<% if session[:username] %>
+  <br><br><br><br><br>
+  <a href="/users/<%= session[:username] %>/delete">Delete user?</a>
+<% end %>
