@@ -46,180 +46,39 @@ class CMSTest < Minitest::Test
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
     assert_includes last_response.body, "about.md"
     assert_includes last_response.body, "changes.txt"
-    assert_includes last_response.body, "edit"
+    assert_includes last_response.body, %Q(<a href="/documents/changes.txt/edit">edit)
     assert_includes last_response.body, %q(<button type="submit">Delete)
   end
 
-  def test_viewing_text_document
-    create_document "history.txt", "This has all happened before..."
-
-    get '/history.txt'
-
-    assert_equal 200, last_response.status
-    assert_equal "text/plain", last_response["Content-Type"]
-    assert_includes last_response.body, "This has all happened before..."
-  end
-
-  def test_viewing_nonexistent_document
-    get '/madeupfile.ext'
-
-    assert_equal 302, last_response.status
-    assert_equal "madeupfile.ext does not exist.", session[:message]
-  end
-
-  def test_viewing_markdown_document
-    create_document "about.md", "# Ruby is..."
-
-    get '/about.md'
-
-    assert_equal 200, last_response.status
-    assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
-    assert_includes last_response.body, "<h1>Ruby is...</h1>"
-  end
-
-  def test_new_document_page
-    get '/new', {}, admin_session
-
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, "<input "
-    assert_includes last_response.body, "<button "
-  end
-
-  def test_document_creation
-    post '/create', { filename: "gluben.txt" }, admin_session
-
-    assert_equal 302, last_response.status
-    assert_equal "gluben.txt was created!", session[:message]
-    
-    get "/"
-    assert_includes last_response.body, 'href="/gluben.txt"'
-  end
-
-  def test_document_creation_with_empty_name
-    post '/create', { filename: '   ' }, admin_session
-
-    assert_equal 422, last_response.status
-    assert_includes last_response.body, "A name is required."
-    assert_includes last_response.body, "Add a new document:"
-  end
-
-  def test_document_creation_without_extension
-    post '/create', { filename: 'not_a_valid_filename' }, admin_session
-
-    assert_equal 422, last_response.status
-    assert_includes last_response.body, "Invalid filename -- "\
-                                        "Supported file types: .txt .md"
-    assert_includes last_response.body, "Add a new document:"
-  end
-
-  def test_document_creation_with_invalid_extension
-    post '/create', { filename: 'file.rb' }, admin_session
-
-    assert_equal 422, last_response.status
-    assert_includes last_response.body, "Invalid filename -- "\
-                                        "Supported file types: .txt .md"
-    assert_includes last_response.body, "Add a new document:"
-  end
-
-  def test_document_creation_with_duplicate_name
-    create_document 'file.txt'
-
-    post '/create', { filename: 'file.txt' }, admin_session
-
-    assert_equal 422, last_response.status
-    assert_includes last_response.body, "Name already in use, please assign "\
-                                        "with a unique file name."
-    assert_includes last_response.body, "Add a new document:"
-  end
-
-  def test_viewing_editing_page
-    create_document "changes.txt"
-
-    get '/changes.txt/edit', {}, admin_session
-
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, "<p>Edit content of changes.txt:</p>"
-  end
-
-  def test_updating_document
-    create_document "changes.txt"
-
-    post '/changes.txt', { new_content: 'testing' }, admin_session
-
-    assert_equal 302, last_response.status
-    assert_equal "changes.txt has been updated!", session[:message]
-
-    get "/changes.txt"
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, "testing"
-  end
-
-  def test_rename_document
-    create_document "temporary.txt"
-
-    post "/temporary.txt/change_name", { new_filename: "renamed.txt" }, admin_session
-    assert_equal 302, last_response.status
-    assert_equal "File is now called renamed.txt!", session[:message]
-
-    get last_response["Location"]
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, %q(href="/renamed.txt")
-  end
-
-  def test_rename_document_with_empty_name
-    create_document "temporary.txt"
-
-    post "/temporary.txt/change_name", { new_filename: "  " }, admin_session
-
-    assert_equal 422, last_response.status
-    assert_includes last_response.body, "A name is required."
-    assert_includes last_response.body, "<p>Edit content of temporary.txt:</p>"
-  end
-
-  def test_document_deletion
-    create_document "temporary.txt"
-
-    get '/', {}, admin_session
-
-    assert_includes last_response.body, 'href="/temporary.txt"'
-
-    post "/temporary.txt/delete"
-    assert_equal 302, last_response.status
-    assert_equal "temporary.txt was deleted", session[:message]
-
-    get "/"
-    refute_includes last_response.body, 'href="/temporary.txt"'
-  end
-
-  def test_signing_out
-    post '/users/signout'
-
-    assert_equal 302, last_response.status
-    assert_nil session[:user]
-    assert_equal "You have been signed out.", session[:message]
-  end
-
-  def test_unauthorised_access
-    create_document 'temporary.txt'  
-
-    post '/temporary.txt/delete'
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
-
-    get '/temporary.txt/edit'
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
-
-    get '/new'
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
-  end
-
-  def test_signed_out_index
+  def test_index_signed_out
     get "/"
     assert_equal 200, last_response.status
-    assert_includes last_response.body, "Sign In"
+    assert_includes last_response.body, %q(<a href="/users/signin">Sign In)
   end
+
+  def test_signup_page
+
+  end
+
+  def test_create_new_user
+
+  end
+
+  def test_create_new_user__username_in_use
+
+  end
+
+  def test_create_new_user__password_too_short
+
+  end
+
+  def test_create_new_user__empty_credential
+
+  end
+
+  def test_create_new_user__credentials_contain_whitespace
+
+  end  
 
   def test_viewing_signin_portal
     get "/users/signin"
@@ -249,10 +108,204 @@ class CMSTest < Minitest::Test
     assert_includes last_response.body, %q(<input name="username" value="wrong user">)
   end
 
+  def test_signing_out
+    post '/users/signout'
+
+    assert_equal 302, last_response.status
+    assert_nil session[:user]
+    assert_equal "You have been signed out.", session[:message]
+  end
+
+  def test_viewing_text_document
+    create_document "history.txt", "This has all happened before..."
+
+    get '/documents/history.txt'
+
+    assert_equal 200, last_response.status
+    assert_equal "text/plain", last_response["Content-Type"]
+    assert_includes last_response.body, "This has all happened before..."
+  end
+
+  def test_viewing_nonexistent_document
+    get '/documents/madeupfile.ext'
+
+    assert_equal 302, last_response.status
+    assert_equal "madeupfile.ext does not exist.", session[:message]
+  end
+
+  def test_viewing_markdown_document
+    create_document "about.md", "# Ruby is..."
+
+    get '/documents/about.md'
+
+    assert_equal 200, last_response.status
+    assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
+    assert_includes last_response.body, "<h1>Ruby is...</h1>"
+  end
+
+  def test_new_document_page
+    get '/documents/new', {}, admin_session
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(<label for="filename">Add a new document:)
+    assert_includes last_response.body, %q(<button type="submit">Create)
+  end
+
+  def test_new_document_page_signed_out
+    get '/documents/new'
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    get last_response["Location"]
+    assert_includes last_response.body, "<h2>Documents</h2>"
+    assert_includes last_response.body, %q(<a href="/users/signin">Sign In</a>)
+  end
+
+  def test_document_creation
+    post '/documents/create', { filename: "gluben.txt" }, admin_session
+
+    assert_equal 302, last_response.status
+    assert_equal "gluben.txt was created!", session[:message]
+    
+    get "/"
+    assert_includes last_response.body, 'href="/documents/gluben.txt"'
+  end
+
+  def test_document_creation_signed_out
+    post '/documents/create', { filename: "gluben.txt" }
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    get last_response["Location"]
+    assert_includes last_response.body, "<h2>Documents</h2>"
+    assert_includes last_response.body, %q(<a href="/users/signin">Sign In</a>)
+  end
+
+  def test_document_creation_with_empty_name
+    post '/documents/create', { filename: '' }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "A name is required."
+    assert_includes last_response.body, %q(<label for="filename">Add a new document:)
+  end
+
+  def test_document_creation_without_extension
+    post '/documents/create', { filename: 'not_a_valid_filename' }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Invalid filename -- "\
+                                        "Supported file types: .txt .md"
+    assert_includes last_response.body, %q(<label for="filename">Add a new document:)
+  end
+
+  def test_document_creation_with_invalid_extension
+    post '/documents/create', { filename: 'file.rb' }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Invalid filename -- "\
+                                        "Supported file types: .txt .md"
+    assert_includes last_response.body, %q(<label for="filename">Add a new document:)
+  end
+
+  def test_document_creation_with_duplicate_name
+    create_document 'file.txt'
+
+    post '/documents/create', { filename: 'file.txt' }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "Name already in use, please assign "\
+                                        "with a unique file name."
+    assert_includes last_response.body, %q(<label for="filename">Add a new document:)
+  end
+
+  def test_viewing_editing_page
+    create_document "changes.txt"
+
+    get '/documents/changes.txt/edit', {}, admin_session
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "<p>Edit content of changes.txt:</p>"
+  end
+
+  def test_viewing_editing_page_signed_out
+    create_document "changes.txt"
+
+    get '/documents/changes.txt/edit'
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    get last_response["Location"]
+    assert_includes last_response.body, "<h2>Documents</h2>"
+    assert_includes last_response.body, %q(<a href="/users/signin">Sign In</a>)
+  end
+
+  def test_updating_document
+    create_document "changes.txt"
+
+    post '/documents/changes.txt', { new_content: 'testing' }, admin_session
+
+    assert_equal 302, last_response.status
+    assert_equal "changes.txt has been updated!", session[:message]
+
+    get "/documents/changes.txt"
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "testing"
+  end
+
+  def test_updating_document_signed_out
+    create_document "changes.txt"
+
+    post '/documents/changes.txt', { new_content: 'testing' }
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    get last_response["Location"]
+    assert_includes last_response.body, "<h2>Documents</h2>"
+    assert_includes last_response.body, %q(<a href="/users/signin">Sign In</a>)
+  end
+
+  def test_rename_document
+    create_document "temporary.txt"
+
+    post "/documents/temporary.txt/change_name", { new_filename: "renamed.txt" }, admin_session
+    assert_equal 302, last_response.status
+    assert_equal "File is now called renamed.txt!", session[:message]
+
+    get last_response["Location"]
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, %q(href="/documents/renamed.txt")
+  end
+
+  def test_rename_document_signed_out
+    create_document "temporary.txt"
+
+    post "/documents/temporary.txt/change_name", { new_filename: "renamed.txt" }
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    get last_response["Location"]
+    assert_includes last_response.body, "<h2>Documents</h2>"
+    assert_includes last_response.body, %q(<a href="/users/signin">Sign In</a>)
+  end
+
+  def test_rename_document_with_empty_name
+    create_document "temporary.txt"
+
+    post "/documents/temporary.txt/change_name", { new_filename: "" }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "A name is required."
+    assert_includes last_response.body, "<p>Edit content of temporary.txt:</p>"
+  end
+
   def test_duplicate
     create_document "temporary.txt"
 
-    post "/temporary.txt/duplicate", {}, admin_session
+    post "/documents/temporary.txt/duplicate", {}, admin_session
     
     assert_equal 302, last_response.status
     assert_equal "copy_of_temporary.txt was created!", session[:message]
@@ -260,7 +313,20 @@ class CMSTest < Minitest::Test
     get last_response["Location"]
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, %q(href="/copy_of_temporary.txt")
+    assert_includes last_response.body, %q(href="/documents/copy_of_temporary.txt")
+  end
+
+  def test_duplicate_signed_out
+    create_document "temporary.txt"
+
+    post "/documents/temporary.txt/duplicate"
+    
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    get last_response["Location"]
+    assert_includes last_response.body, "<h2>Documents</h2>"
+    assert_includes last_response.body, %q(<a href="/users/signin">Sign In</a>)
   end
 
   def test_duplicate_2
@@ -268,7 +334,7 @@ class CMSTest < Minitest::Test
     create_document "copy_of_temporary.txt"
     create_document "copy_of_temporary.txt(1)"
 
-    post "/temporary.txt/duplicate", {}, admin_session
+    post "/documents/temporary.txt/duplicate", {}, admin_session
     
     assert_equal 302, last_response.status
     assert_equal "copy_of_temporary.txt(2) was created!", session[:message]
@@ -276,7 +342,39 @@ class CMSTest < Minitest::Test
     get last_response["Location"]
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, %q(href="/copy_of_temporary.txt(2)")
+    assert_includes last_response.body, %q(href="/documents/copy_of_temporary.txt(2)")
+  end
+
+  def test_document_deletion
+    create_document "temporary.txt"
+
+    get '/', {}, admin_session
+
+    assert_includes last_response.body, 'href="/documents/temporary.txt"'
+
+    post "/documents/temporary.txt/delete"
+    assert_equal 302, last_response.status
+    assert_equal "temporary.txt was deleted", session[:message]
+
+    get "/"
+    refute_includes last_response.body, 'href="/documents/temporary.txt"'
+  end
+
+  def test_document_deletion_signed_out
+    create_document "temporary.txt"
+
+    get '/'
+
+    assert_includes last_response.body, 'href="/documents/temporary.txt"'
+
+    post "/documents/temporary.txt/delete"
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    get last_response["Location"]
+    assert_includes last_response.body, "<h2>Documents</h2>"
+    assert_includes last_response.body, %q(<a href="/users/signin">Sign In</a>)
   end
 end
 

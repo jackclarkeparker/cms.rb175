@@ -13,21 +13,6 @@ configure do
   set :erb, :escape_html => true
 end
 
-def data_path
-  if ENV["RACK_ENV"] == "test"
-    File.expand_path("../test/data", __FILE__)
-  else
-    File.expand_path("../data", __FILE__)
-  end
-end
-
-def data_files
-  pattern = File.join(data_path, "*")
-  Dir.glob(pattern).map do |path|
-    File.basename(path)
-  end
-end
-
 def redirect_if_signed_out
   if session[:user].nil?
     session[:message] = "You must be signed in to do that."
@@ -38,7 +23,38 @@ end
 # View index of all documents
 get "/" do
   @files = data_files
+  @images = image_files
   erb :index
+end
+
+def data_files
+  pattern = File.join(data_path, "*")
+  Dir.glob(pattern).map do |path|
+    File.basename(path)
+  end
+end
+
+def data_path
+  find_path_for('data')
+end
+
+def image_files
+  pattern = File.join(image_path, "*")
+  Dir.glob(pattern).map do |path|
+    File.basename(path)
+  end
+end
+
+def image_path
+  find_path_for('images')
+end
+
+def find_path_for(basename)
+  if ENV["RACK_ENV"] == "test"
+    File.expand_path("../test/" + basename, __FILE__)
+  else
+    File.expand_path("../" + basename, __FILE__)
+  end
 end
 
 # Login Portal
@@ -51,7 +67,7 @@ post "/users/signin" do
   @username = params[:username]
   password = params[:password]
 
-  if valid_credentials?(@username, password)
+  if entry_credentials_valid?(@username, password)
     session[:user] = @username
     session[:message] = "Welcome!"
     redirect "/"
@@ -62,7 +78,7 @@ post "/users/signin" do
   end
 end
 
-def valid_credentials?(submitted_username, submitted_password)
+def entry_credentials_valid?(submitted_username, submitted_password)
   valid_users = load_user_credentials
 
   valid_users.any? do |user, pswd|
@@ -71,12 +87,11 @@ def valid_credentials?(submitted_username, submitted_password)
 end
 
 def load_user_credentials
-  credentials_path = if ENV["RACK_ENV"] == 'test'
-    File.expand_path("../test/users.yml", __FILE__)
-  else
-    File.expand_path("../users.yml", __FILE__)
-  end
-  YAML.load_file(credentials_path)
+  YAML.load_file(credentials_path) || {}
+end
+
+def credentials_path
+  find_path_for("users.yml")
 end
 
 # Sign out of app
@@ -86,23 +101,93 @@ post "/users/signout" do
   redirect "/"
 end
 
+# Visit Signup page
+get "/users/signup" do
+  erb :signup
+end
+
+# Create a new user
+post "/users/create" do
+  @username = params[:username].strip
+  password = params[:password]
+ 
+  if creation_credentials_valid?(@username, password)
+    create_user(@username, password)
+    session[:message] = "New user created!"
+    redirect "/"
+  else
+    session[:message] = set_message_for_invalid_signup(@username, password)
+    status 422
+    erb :signup
+  end
+end
+
+def creation_credentials_valid?(username, password)
+  if empty_credentials?(username, password) ||
+     contains_whitespace?(username, password) ||
+     password_too_short?(password) ||
+     username_already_in_use?(username)
+    false
+  else
+    true
+  end
+end
+
+def empty_credentials?(user, pswd)
+  [user, pswd].any? { |cred| cred.empty? }
+end
+
+def contains_whitespace?(user, pswd)
+  [user, pswd].any? { |cred| cred.include?(' ') }
+end
+
+def password_too_short?(password)
+  password.length < 8
+end
+
+def username_already_in_use?(username)
+  existing_users = load_user_credentials
+  existing_users.any? { |u, _| u == username }
+end
+
+def set_message_for_invalid_signup(username, password)
+  case 
+  when empty_credentials?(username, password)
+    "Missing either username or password"
+  when contains_whitespace?(username, password)
+    "Credentials cannot include spaces"
+  when password_too_short?(password)
+    "Password must be at least 8 characters long"
+  when name_already_in_use?(username)
+    "That username is already in use, please try another"
+  end
+end
+
+def create_user(username, password)
+  existing_users = load_user_credentials
+  existing_users[username] = BCrypt::Password.create(password).to_s
+  File.open(credentials_path, 'w') do |file|
+    file.write(Psych.dump(existing_users))
+  end
+end
+
 # View page for creating a new document
-get "/new" do
+get "/documents/new" do
   redirect_if_signed_out
 
-  erb :new
+  erb :new_document
 end
 
 # Create a new document
-post "/create" do
+post "/documents/create" do
   redirect_if_signed_out
 
   filename = params[:filename].strip
  
   if invalid_filename?(filename)
-    session[:message] = set_message_for_invalid(filename)
+    session[:message] = set_message_for_invalid_filename(filename)
     status 422
-    erb :new
+    erb :new_document
   else
     file_path = File.join(data_path, filename)
 
@@ -125,7 +210,7 @@ def already_in_use?(name)
   data_files.any? { |file| file == name }
 end
 
-def set_message_for_invalid(name)
+def set_message_for_invalid_filename(name)
   if name.empty?
     "A name is required."
   elsif mismatches_pattern?(name)
@@ -136,7 +221,7 @@ def set_message_for_invalid(name)
 end
 
 # View content of a document
-get "/:filename" do
+get "/documents/:filename" do
   file_path = File.join(data_path, params[:filename])
 
   if File.file?(file_path)
@@ -165,7 +250,7 @@ def markdown_to_html(text)
 end
 
 # Visit editing page for a document
-get "/:filename/edit" do
+get "/documents/:filename/edit" do
   redirect_if_signed_out
 
   prepare_edit_data(params[:filename])
@@ -180,7 +265,7 @@ def prepare_edit_data(filename)
 end
 
 # Update a document's content
-post "/:filename" do
+post "/documents/:filename" do
   redirect_if_signed_out
 
   file_path = File.join(data_path, params[:filename])
@@ -202,13 +287,13 @@ def content_changed?(path, new_content)
 end
 
 # Change the name of a document
-post '/:filename/change_name' do
+post '/documents/:filename/change_name' do
   redirect_if_signed_out
 
   @new_filename = params[:new_filename].strip
  
   if invalid_filename?(@new_filename)
-    session[:message] = set_message_for_invalid(@new_filename)
+    session[:message] = set_message_for_invalid_filename(@new_filename)
     status 422
     prepare_edit_data(params[:filename])
     erb :edit
@@ -230,7 +315,7 @@ def rename_file(oldname, newname)
 end
 
 # Duplicate a document
-post "/:filename/duplicate" do
+post "/documents/:filename/duplicate" do
   redirect_if_signed_out
 
   new_name = duplicate_name(params[:filename])
@@ -260,7 +345,7 @@ def duplicate_name(existing_file)
 end
 
 # Delete a document
-post "/:filename/delete" do
+post "/documents/:filename/delete" do
   redirect_if_signed_out
 
   file_path = File.join(data_path, params[:filename])
@@ -270,3 +355,13 @@ post "/:filename/delete" do
 
   redirect "/"
 end
+
+# Visit the 'Add Image' view
+get "/images/new" do
+  erb :new_image
+end
+
+# # Add an image
+# post "/images/add" do
+
+# end

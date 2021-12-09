@@ -1,19 +1,35 @@
+<h2>Documents</h2>
 <ul>
   <% @files.each do |file| %>
     <li>
-      <a href="/<%= file %>"><%= file %></a> | 
-      <a href="/<%= file %>/edit">edit</a>
-      <form class="inline" method="post" action="/<%= file %>/duplicate">
+      <a href="/documents/<%= file %>"><%= file %></a> | 
+      <a href="/documents/<%= file %>/edit">edit</a>
+      <form class="inline" method="post" action="/documents/<%= file %>/duplicate">
         <button type="submit">Duplicate</button>
       </form>
-      <form  class="inline" method="post" action="/<%= file %>/delete">
+      <form  class="inline" method="post" action="/documents/<%= file %>/delete">
         <button type="submit">Delete</button>
       </form>
     </li>
   <% end %>
 </ul>
 
-<p><a href="/new">New Document</a></p>
+<p><a href="/documents/new">New Document</a></p>
+
+<h2>Images</h2>
+
+<ul>
+  <% @images.each do |image| %>
+    <li>
+      <a href="/images/<%= image %>"><%= image %></a>
+      <form class="inline" method="post" action="/images/<%= image %>/delete">
+        <button type="submit">Delete</button>
+      </form>
+    </li>
+  <% end %>
+</ul>
+
+<p><a href="/images/new">Add Image</a></p>
 
 <% if session[:user] %>
   <form class="inline" method="post" action="/users/signout">
@@ -24,3 +40,4 @@
 <% else %>
   <p class="user-status"><a href="/users/signin">Sign In</a></p>
 <% end %>
+<a class="user-status" href="/users/signup"><em>Sign Up</em></a>
