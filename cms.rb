@@ -5,6 +5,8 @@ require 'tilt/erubis'
 require 'redcarpet'
 require 'yaml'
 require 'bcrypt'
+require 'open-uri' # Dangerous, leaves you open to remote code execution.
+
 require 'pry'
 
 configure do
@@ -46,7 +48,7 @@ def image_files
 end
 
 def image_path
-  find_path_for('images')
+  find_path_for('/public/images')
 end
 
 def find_path_for(basename)
@@ -386,7 +388,36 @@ get "/images/new" do
   erb :new_image
 end
 
-# # Add an image
-# post "/images/add" do
+# Add an image
+post "/images/add" do
+  imagename = params[:imagename]
+  url = params[:url]
 
-# end
+  URI.open(url) do |image|
+    File.open("./public/images/#{make_jpeg(imagename)}", "wb") do |file|
+      file.write(image.read)
+    end
+  end
+
+  redirect "/"
+end
+
+def make_jpeg(basename)
+  if basename.include?('.')
+    basename[/\..*/] = '.jpg'
+  else
+    basename << '.jpg'
+  end
+end
+
+get "/images/:imagename" do
+  @path = File.join(image_path, params[:imagename])
+
+  if File.file?(@path)
+    erb :image_viewer
+  else
+    status 422
+    session[:message] = "#{params[:imagename]} does not exist."
+    redirect "/"
+  end  
+end
